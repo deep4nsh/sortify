@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
+import 'splash_screen.dart';
 
 void main() {
-  runApp(const SortifyApp());
+  runApp(const MyApp());
 }
 
-class SortifyApp extends StatelessWidget {
-  const SortifyApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Sortify MLKit',
+      title: 'Sortify',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        scaffoldBackgroundColor: Colors.black,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF8B61C2),
-        ),
+        fontFamily: 'Poppins',
+        brightness: Brightness.dark,
+        primaryColor: const Color(0xFF8B61C2),
       ),
-      home: const HomeScreen(),
+
+      home: const SplashScreen(), // Launch splash first
     );
   }
 }
