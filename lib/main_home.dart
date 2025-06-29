@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'album_screen.dart';
+import 'package:provider/provider.dart';
+import 'theme_provider.dart';
 
 class MainHome extends StatefulWidget {
   const MainHome({super.key});
@@ -42,35 +44,44 @@ class _MainHomeState extends State<MainHome> {
         backgroundColor: const Color(0xFF8B61C2),
       ),
       drawer: Drawer(
-        child: Column(
+        child: ListView(
+          padding: EdgeInsets.zero,
           children: [
             const DrawerHeader(
               decoration: BoxDecoration(color: Color(0xFF8B61C2)),
-              child: Center(
-                child: Text('Sortify Menu',
-                    style: TextStyle(color: Colors.white, fontSize: 24)),
-              ),
+              child: Text('Sortify Menu', style: TextStyle(color: Colors.white, fontSize: 24)),
             ),
             ListTile(
               leading: const Icon(Icons.image),
               title: const Text('All Photos'),
               selected: selectedIndex == 0,
-              selectedTileColor: Colors.purple[100],
-              onTap: () => _selectScreen(0),
+              selectedTileColor: Colors.purple[50],
+              onTap: () {
+                setState(() => selectedIndex = 0);
+                Navigator.pop(context);
+              },
             ),
             ListTile(
               leading: const Icon(Icons.photo_album),
               title: const Text('Albums'),
               selected: selectedIndex == 1,
-              selectedTileColor: Colors.purple[100],
-              onTap: () => _selectScreen(1),
+              selectedTileColor: Colors.purple[50],
+              onTap: () {
+                setState(() => selectedIndex = 1);
+                Navigator.pop(context);
+              },
             ),
-            const Spacer(),
             const Divider(),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Text('© 2025 Sortify',
-                  style: TextStyle(color: Colors.grey[600])),
+            Consumer<ThemeProvider>(
+              builder: (context, themeProvider, _) => SwitchListTile(
+                title: const Text("Dark Theme"),
+                secondary: Icon(
+                  themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                  color: themeProvider.isDarkMode ? Colors.white : Colors.black,
+                ),
+                value: themeProvider.isDarkMode,
+                onChanged: (value) => themeProvider.toggleTheme(value),
+              ),
             ),
           ],
         ),

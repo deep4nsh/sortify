@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'full_image_viewer.dart';
 import 'image_labeler.dart';
 
 class CategorizedImage {
@@ -19,11 +20,16 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  DateTime? selectedDate;
+  Set<String> favoriteIds = {};
   List<CategorizedImage> allImages = [];
   String selectedCategory = 'All';
   bool isLoading = true;
   bool permissionDenied = false;
   final ScrollController _categoryController = ScrollController();
+  TextEditingController _searchController = TextEditingController();
+  String searchQuery = '';
+
 
   // For progressive loading
   bool _isLoadingMore = false;
@@ -208,32 +214,63 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildImageTile(CategorizedImage img) {
+  Widget _buildImageTile(CategorizedImage img, int index, List<CategorizedImage> list) {
     return FutureBuilder<Uint8List?>(
       future: img.entity.thumbnailDataWithSize(const ThumbnailSize(250, 250)),
       builder: (_, snapshot) {
         if (snapshot.hasData) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                    child: Image.memory(snapshot.data!, fit: BoxFit.cover)),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    color: Colors.black54,
-                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                    child: Text(
-                      img.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
+          final isFavorite = favoriteIds.contains(img.entity.id);
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FullImageViewer(
+                    images: list,
+                    initialIndex: index,
                   ),
+                ),
+              );
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.memory(snapshot.data!, fit: BoxFit.cover, width: double.infinity),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isFavorite) {
+                                favoriteIds.remove(img.entity.id);
+                              } else {
+                                favoriteIds.add(img.entity.id);
+                              }
+                            });
+                          },
+                          child: Icon(
+                            isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: isFavorite ? Colors.redAccent : Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  img.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
@@ -245,24 +282,39 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(10),
           ),
           child: const Center(
-              child: CircularProgressIndicator(color: Color(0xFF8B61C2))),
+            child: CircularProgressIndicator(color: Color(0xFF8B61C2)),
+          ),
         );
       },
     );
   }
 
+
+
+
+  @override
   @override
   Widget build(BuildContext context) {
-    final filteredImages = selectedCategory == 'All'
-        ? allImages
-        : allImages.where((img) => img.label == selectedCategory).toList();
+    final filteredImages = allImages.where((img) {
+      final matchesCategory = selectedCategory == 'All' || img.label == selectedCategory;
+      final matchesSearch = searchQuery.isEmpty || img.label.toLowerCase().contains(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    }).toList();
+
     final categories = ['All', ...Set.from(allImages.map((img) => img.label))];
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF1A1A1A),
       appBar: AppBar(
-        title: const Text('Sortify', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF8B61C2),
+        title: const Text(
+          'Sortify',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        elevation: 2,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -290,58 +342,90 @@ class _HomeScreenState extends State<HomeScreen> {
           ? _buildPermissionDenied()
           : Column(
         children: [
-          Container(
-            height: 60,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: ListView.builder(
-              controller: _categoryController,
-              scrollDirection: Axis.horizontal,
-              itemCount: categories.length,
-              itemBuilder: (_, index) =>
-                  _buildCategoryChip(categories[index]),
-            ),
-          ),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: filteredImages.isEmpty
-                  ? const Center(
-                  child: Text('No images found',
-                      style: TextStyle(
-                          color: Colors.white70, fontSize: 18)))
-                  : NotificationListener<ScrollNotification>(
-                onNotification: (notification) {
-                  if (!_isLoadingMore &&
-                      notification.metrics.pixels >=
-                          notification.metrics.maxScrollExtent - 200 &&
-                      _loadedCount < _allEntities.length) {
-                    _loadMoreImages();
-                  }
-                  return false;
-                },
-                child: GridView.builder(
-                  key: ValueKey<String>(selectedCategory),
-                  padding: const EdgeInsets.all(8),
-                  gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 4,
-                    crossAxisSpacing: 4,
-                    childAspectRatio: 0.8,
-                  ),
-                  itemCount: filteredImages.length,
-                  itemBuilder: (_, index) =>
-                      _buildImageTile(filteredImages[index]),
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Material(
+              elevation: 2,
+              borderRadius: BorderRadius.circular(25),
+              color: Colors.white12,
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => searchQuery = value),
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                  hintText: 'Search by label (e.g., cat)',
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
                 ),
               ),
             ),
           ),
+
+          // Category Chips
+          Container(
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: const Text(
+              'Categories',
+              style: TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          SizedBox(
+            height: 48,
+            child: ListView.builder(
+              controller: _categoryController,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: categories.length,
+              itemBuilder: (_, index) => _buildCategoryChip(categories[index]),
+            ),
+          ),
+
+          // Image Grid
+          const SizedBox(height: 6),
+          Expanded(
+            child: filteredImages.isEmpty
+                ? const Center(
+              child: Text(
+                'No images found',
+                style: TextStyle(color: Colors.white54, fontSize: 16),
+              ),
+            )
+                : NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (!_isLoadingMore &&
+                    notification.metrics.pixels >=
+                        notification.metrics.maxScrollExtent - 200 &&
+                    _loadedCount < _allEntities.length) {
+                  _loadMoreImages();
+                }
+                return false;
+              },
+              child: GridView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 6,
+                  mainAxisSpacing: 6,
+                  childAspectRatio: 0.75,
+                ),
+                itemCount: filteredImages.length,
+                itemBuilder: (_, index) => _buildImageTile(filteredImages[index], index, filteredImages),
+              ),
+            ),
+          ),
+
           if (_isLoadingMore)
             const Padding(
               padding: EdgeInsets.all(8.0),
-              child: CircularProgressIndicator(
-                color: Color(0xFF8B61C2),
-              ),
+              child: CircularProgressIndicator(color: Color(0xFF8B61C2)),
             ),
         ],
       ),
