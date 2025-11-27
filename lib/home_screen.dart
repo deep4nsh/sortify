@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'full_image_viewer.dart';
 import 'image_labeler.dart';
+import 'services/ai_service.dart';
 
 class CategorizedImage {
   final AssetEntity entity;
@@ -143,7 +144,19 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         final file = await entity.file;
         if (file != null) {
-          final label = await ImageLabelerHelper.classify(file);
+          // 1. Try on-device ML first
+          String label = await ImageLabelerHelper.classify(file);
+          
+          // 2. Fallback to AI if Unknown
+          if (label == "Unknown") {
+             // Note: In a real app, you might want to rate-limit this or only do it for specific cases
+             // to avoid burning through API quota or slowing down too much.
+             final aiLabel = await AIService.classifyImage(file);
+             if (aiLabel != null && aiLabel.isNotEmpty) {
+               label = aiLabel;
+             }
+          }
+          
           return CategorizedImage(entity, label);
         }
       } catch (_) {}
