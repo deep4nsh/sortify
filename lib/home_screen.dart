@@ -4,6 +4,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'full_image_viewer.dart';
 import 'image_labeler.dart';
 import 'services/ai_service.dart';
+import 'people_screen.dart';
 
 class CategorizedImage {
   final AssetEntity entity;
@@ -329,6 +330,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         elevation: 2,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.people),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PeopleScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
